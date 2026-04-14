@@ -1,0 +1,36 @@
+# Saída de transcrições
+saida/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Ambientes virtuais
+.env
+.venv
+venv/
+env/
+
+# Arquivos de áudio (geralmente grandes)
+*.mp3
+*.mp4
+*.wav
+*.m4a
+*.ogg
+*.flac
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
