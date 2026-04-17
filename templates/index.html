@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TranscreveAudio</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #222636;
+      --border: #2e3347;
+      --accent: #6c63ff;
+      --accent-hover: #5a52e0;
+      --accent-glow: rgba(108,99,255,.25);
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --text: #e8eaf0;
+      --text-muted: #7a7f9a;
+      --radius: 12px;
+      --transition: .2s ease;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header .logo {
+      width: 36px; height: 36px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: grid; place-items: center;
+      font-size: 20px;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: -.3px; }
+    header p  { font-size: .8rem; color: var(--text-muted); }
+
+    /* ── Layout ── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 0;
+      max-height: calc(100vh - 73px);
+      overflow: hidden;
+    }
+
+    /* ── Painel esquerdo ── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Painel direito ── */
+    .transcript-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .card-title {
+      font-size: .75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    /* ── Drop zone ── */
+    #dropzone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 32px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+    }
+    #dropzone:hover, #dropzone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+    #dropzone .dz-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    #dropzone .dz-label { font-size: .95rem; font-weight: 600; }
+    #dropzone .dz-sub   { font-size: .78rem; color: var(--text-muted); margin-top: 4px; }
+    #dropzone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+    #file-info {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: .85rem;
+    }
+    #file-info .fi-icon { font-size: 1.4rem; }
+    #file-info .fi-name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #file-info .fi-size { color: var(--text-muted); font-size: .78rem; }
+    #file-info .fi-remove { cursor: pointer; color: var(--text-muted); font-size: 1.1rem; transition: var(--transition); }
+    #file-info .fi-remove:hover { color: var(--red); }
+
+    /* ── Form controls ── */
+    label.field-label {
+      display: block;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    select, input[type="text"] {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 9px 12px;
+      font-size: .9rem;
+      outline: none;
+      transition: var(--transition);
+      appearance: none;
+    }
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a7f9a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+
+    .model-option-desc {
+      font-size: .75rem;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    .model-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .model-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      transition: var(--transition);
+    }
+    .model-badge:hover { border-color: var(--accent); color: var(--text); }
+    .model-badge.active { border-color: var(--accent); background: var(--accent-glow); color: var(--accent); }
+
+    /* ── Botão principal ── */
+    #btn-transcribe {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 13px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    #btn-transcribe:hover:not(:disabled) { background: var(--accent-hover); }
+    #btn-transcribe:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ── Status bar ── */
+    #status-bar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: .85rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+    #status-bar.show { display: flex; }
+    #status-bar .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #status-bar.done   { border-color: var(--green);  background: rgba(34,197,94,.1); }
+    #status-bar.error  { border-color: var(--red);    background: rgba(239,68,68,.1); }
+    #status-bar.done  .spinner,
+    #status-bar.error .spinner { display: none; }
+
+    /* ── Área de transcrição ── */
+    .transcript-toolbar {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .transcript-toolbar .tb-left {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .transcript-toolbar h2 { font-size: 1rem; font-weight: 700; }
+    #lang-badge {
+      display: none;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 600;
+      background: var(--accent-glow);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+    .tb-actions { display: flex; gap: 8px; }
+    .btn-sm {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      transition: var(--transition);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-sm:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-sm.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn-sm.primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+    #transcript-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    #placeholder {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-muted);
+      user-select: none;
+    }
+    #placeholder .ph-icon { font-size: 3.5rem; opacity: .35; }
+    #placeholder p { font-size: .9rem; }
+
+    #segments-container { display: flex; flex-direction: column; gap: 8px; }
+
+    .segment {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      animation: fadeSlide .3s ease;
+    }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .seg-time {
+      font-size: .72rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      padding-top: 2px;
+      min-width: 90px;
+      font-family: monospace;
+    }
+    .seg-text { font-size: .95rem; line-height: 1.6; }
+
+    /* ── Responsivo ── */
+    @media (max-width: 768px) {
+      main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; max-height: none; overflow: visible; }
+      .transcript-panel { min-height: 50vh; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🎙️</div>
+  <div>
+    <h1>TranscreveAudio</h1>
+    <p>Transcrição de áudio com Whisper</p>
+  </div>
+</header>
+
+<main>
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <!-- Upload -->
+    <div>
+      <div class="card-title">1. Arquivo de áudio</div>
+      <div id="dropzone">
+        <div class="dz-icon">📂</div>
+        <div class="dz-label">Arraste ou clique para selecionar</div>
+        <div class="dz-sub">MP3, MP4, WAV, M4A, OGG, FLAC, WEBM · até 500 MB</div>
+        <input type="file" id="file-input" accept=".mp3,.mp4,.wav,.m4a,.ogg,.flac,.webm" />
+      </div>
+      <div id="file-info" style="margin-top:10px;">
+        <span class="fi-icon">🎵</span>
+        <div>
+          <div class="fi-name" id="fi-name"></div>
+          <div class="fi-size" id="fi-size"></div>
+        </div>
+        <span class="fi-remove" id="fi-remove" title="Remover arquivo">✕</span>
+      </div>
+    </div>
+
+    <!-- Modelo -->
+    <div>
+      <div class="card-title">2. Modelo Whisper</div>
+      <div class="model-badges" id="model-badges">
+        <div class="model-badge" data-model="tiny">Tiny</div>
+        <div class="model-badge active" data-model="base">Base</div>
+        <div class="model-badge" data-model="small">Small</div>
+        <div class="model-badge" data-model="medium">Medium</div>
+        <div class="model-badge" data-model="large">Large</div>
+      </div>
+      <div class="model-option-desc" id="model-desc">Boa velocidade, qualidade adequada para uso geral.</div>
+    </div>
+
+    <!-- Idioma -->
+    <div>
+      <div class="card-title">3. Idioma do áudio</div>
+      <label class="field-label" for="language-select">Idioma (opcional)</label>
+      <select id="language-select">
+        <option value="">Detecção automática</option>
+        <option value="pt">Português</option>
+        <option value="en">Inglês</option>
+        <option value="es">Espanhol</option>
+        <option value="fr">Francês</option>
+        <option value="de">Alemão</option>
+        <option value="it">Italiano</option>
+        <option value="ja">Japonês</option>
+        <option value="zh">Chinês</option>
+        <option value="ko">Coreano</option>
+        <option value="ar">Árabe</option>
+        <option value="ru">Russo</option>
+      </select>
+    </div>
+
+    <!-- Ação -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button id="btn-transcribe" disabled>
+        <span>🚀</span> Transcrever
+      </button>
+      <div id="status-bar">
+        <div class="spinner"></div>
+        <span id="status-text"></span>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Painel de transcrição ── -->
+  <section class="transcript-panel">
+    <div class="transcript-toolbar">
+      <div class="tb-left">
+        <h2>Transcrição</h2>
+        <span id="lang-badge"></span>
+      </div>
+      <div class="tb-actions">
+        <button class="btn-sm" id="btn-copy" disabled>📋 Copiar tudo</button>
+        <button class="btn-sm primary" id="btn-download" disabled>⬇️ Baixar .txt</button>
+      </div>
+    </div>
+
+    <div id="transcript-area">
+      <div id="placeholder">
+        <div class="ph-icon">🎧</div>
+        <p>Importe um áudio e clique em <strong>Transcrever</strong></p>
+        <p style="font-size:.8rem;">Os segmentos aparecerão aqui em tempo real</p>
+      </div>
+      <div id="segments-container" style="display:none;"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const MODEL_DESCS = {
+    tiny:   "Ultrarrápido, menor precisão. Ideal para testes rápidos.",
+    base:   "Boa velocidade, qualidade adequada para uso geral.",
+    small:  "Equilibrado entre velocidade e precisão.",
+    medium: "Alta precisão, mais lento. Recomendado para conteúdo complexo.",
+    large:  "Máxima precisão. Mais lento, requer mais memória.",
+  };
+
+  let selectedFile = null;
+  let selectedModel = "base";
+  let currentJobId = null;
+  let currentEventSource = null;
+  let allSegments = [];
+
+  // ── Dropzone ──
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("file-input");
+  const fileInfo  = document.getElementById("file-info");
+
+  dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag-over"); });
+  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
+  dropzone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropzone.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) setFile(file);
+  });
+  fileInput.addEventListener("change", () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+
+  document.getElementById("fi-remove").addEventListener("click", () => clearFile());
+
+  function setFile(file) {
+    selectedFile = file;
+    dropzone.style.display = "none";
+    fileInfo.style.display = "flex";
+    document.getElementById("fi-name").textContent = file.name;
+    document.getElementById("fi-size").textContent = formatBytes(file.size);
+    updateBtn();
+  }
+
+  function clearFile() {
+    selectedFile = null;
+    fileInput.value = "";
+    dropzone.style.display = "";
+    fileInfo.style.display = "none";
+    updateBtn();
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / 1048576).toFixed(1) + " MB";
+  }
+
+  // ── Model badges ──
+  document.getElementById("model-badges").addEventListener("click", e => {
+    const badge = e.target.closest(".model-badge");
+    if (!badge) return;
+    document.querySelectorAll(".model-badge").forEach(b => b.classList.remove("active"));
+    badge.classList.add("active");
+    selectedModel = badge.dataset.model;
+    document.getElementById("model-desc").textContent = MODEL_DESCS[selectedModel];
+  });
+
+  // ── Botão transcrever ──
+  function updateBtn() {
+    document.getElementById("btn-transcribe").disabled = !selectedFile;
+  }
+
+  document.getElementById("btn-transcribe").addEventListener("click", startTranscription);
+
+  async function startTranscription() {
+    if (!selectedFile) return;
+
+    // Reset UI
+    resetTranscriptPanel();
+    setStatus("Enviando arquivo...", false);
+    document.getElementById("btn-transcribe").disabled = true;
+    document.getElementById("btn-copy").disabled = true;
+    document.getElementById("btn-download").disabled = true;
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("model", selectedModel);
+    formData.append("language", document.getElementById("language-select").value);
+
+    try {
+      const res = await fetch("/transcribe", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) { setStatus(data.error || "Erro ao enviar arquivo.", true); return; }
+      currentJobId = data.job_id;
+      connectStream(currentJobId);
+    } catch (err) {
+      setStatus("Erro de conexão: " + err.message, true);
+      document.getElementById("btn-transcribe").disabled = false;
+    }
+  }
+
+  function connectStream(jobId) {
+    if (currentEventSource) currentEventSource.close();
+    currentEventSource = new EventSource(`/stream/${jobId}`);
+
+    currentEventSource.onmessage = (e) => {
+      const ev = JSON.parse(e.data);
+
+      if (ev.type === "ping") return;
+
+      if (ev.type === "status") {
+        setStatus(ev.message, false);
+      }
+
+      if (ev.type === "language") {
+        const badge = document.getElementById("lang-badge");
+        badge.textContent = "🌐 " + ev.language.toUpperCase();
+        badge.style.display = "inline-block";
+      }
+
+      if (ev.type === "segment") {
+        showPlaceholder(false);
+        allSegments.push(ev);
+        appendSegment(ev);
+      }
+
+      if (ev.type === "done") {
+        setStatus("Transcrição concluída!", false, true);
+        document.getElementById("btn-copy").disabled = false;
+        document.getElementById("btn-download").disabled = false;
+        document.getElementById("btn-transcribe").disabled = false;
+        currentEventSource.close();
+      }
+
+      if (ev.type === "error") {
+        setStatus("Erro: " + ev.message, true);
+        document.getElementById("btn-transcribe").disabled = false;
+        currentEventSource.close();
+      }
+    };
+
+    currentEventSource.onerror = () => {
+      setStatus("Conexão interrompida.", true);
+      document.getElementById("btn-transcribe").disabled = false;
+      currentEventSource.close();
+    };
+  }
+
+  function appendSegment(seg) {
+    const container = document.getElementById("segments-container");
+    container.style.display = "flex";
+
+    const div = document.createElement("div");
+    div.className = "segment";
+
+    const start = formatTime(seg.start);
+    const end   = formatTime(seg.end);
+
+    div.innerHTML = `
+      <span class="seg-time">${start} → ${end}</span>
+      <span class="seg-text">${escapeHtml(seg.text)}</span>
+    `;
+    container.appendChild(div);
+    div.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  function formatTime(seconds) {
+    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toFixed(1).padStart(4, "0");
+    return `${m}:${s}`;
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function showPlaceholder(show) {
+    document.getElementById("placeholder").style.display = show ? "" : "none";
+  }
+
+  function resetTranscriptPanel() {
+    allSegments = [];
+    document.getElementById("segments-container").innerHTML = "";
+    document.getElementById("segments-container").style.display = "none";
+    document.getElementById("lang-badge").style.display = "none";
+    showPlaceholder(true);
+    // Não usar style.display inline — deixar o CSS controlar via classe
+    document.getElementById("status-bar").className = "";
+  }
+
+  // ── Status bar ──
+  function setStatus(msg, isError, isDone) {
+    const bar = document.getElementById("status-bar");
+    // Limpa qualquer inline style para que a classe CSS funcione
+    bar.style.removeProperty("display");
+    bar.className = "show" + (isError ? " error" : isDone ? " done" : "");
+    document.getElementById("status-text").textContent = msg;
+  }
+
+  // ── Copiar ──
+  document.getElementById("btn-copy").addEventListener("click", () => {
+    const text = allSegments.map(s => s.text).join(" ");
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById("btn-copy");
+      const orig = btn.textContent;
+      btn.textContent = "✓ Copiado!";
+      setTimeout(() => btn.innerHTML = "📋 Copiar tudo", 1800);
+    });
+  });
+
+  // ── Download ──
+  document.getElementById("btn-download").addEventListener("click", () => {
+    if (currentJobId) window.location.href = `/download/${currentJobId}`;
+  });
+</script>
+
+</body>
+</html>
